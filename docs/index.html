@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HermesLens — Agent framework dissection</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=IBM+Plex+Mono:wght@400;500&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --ink: #14202b;
+      --muted: #5a6b7a;
+      --paper: #f3f6f8;
+      --panel: rgba(255, 255, 255, 0.78);
+      --line: #c9d5df;
+      --accent: #0f7a6c;
+      --accent-2: #c45c26;
+      --hermes: #0f7a6c;
+      --openclaw: #2b5ea8;
+      --warn: #b45309;
+      --shadow: 0 18px 50px rgba(20, 32, 43, 0.12);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: Outfit, system-ui, sans-serif;
+      background:
+        radial-gradient(1200px 600px at 10% -10%, #d7ebe6 0%, transparent 55%),
+        radial-gradient(900px 500px at 100% 0%, #f3e2d4 0%, transparent 50%),
+        linear-gradient(180deg, #eef3f6 0%, var(--paper) 40%, #e8eef2 100%);
+      min-height: 100vh;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background-image:
+        linear-gradient(rgba(20, 32, 43, 0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(20, 32, 43, 0.035) 1px, transparent 1px);
+      background-size: 28px 28px;
+      mask-image: linear-gradient(180deg, #000 0%, transparent 85%);
+    }
+
+    .wrap { width: min(1100px, calc(100% - 2rem)); margin: 0 auto; position: relative; }
+
+    .hero {
+      padding: 4.5rem 0 2rem;
+      animation: rise 0.7s ease both;
+    }
+    .brand {
+      font-family: Fraunces, Georgia, serif;
+      font-size: clamp(2.8rem, 8vw, 4.6rem);
+      line-height: 0.95;
+      letter-spacing: -0.03em;
+      margin: 0 0 0.75rem;
+    }
+    .brand span { color: var(--accent); }
+    .lede {
+      max-width: 36rem;
+      font-size: 1.15rem;
+      color: var(--muted);
+      margin: 0 0 1.5rem;
+    }
+    .cta-row { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+    .btn {
+      border: 1px solid var(--ink);
+      background: var(--ink);
+      color: #fff;
+      border-radius: 999px;
+      padding: 0.7rem 1.15rem;
+      font: inherit;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.18s ease, background 0.18s ease, color 0.18s ease;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn.ghost { background: transparent; color: var(--ink); }
+    .btn.ghost:hover { background: rgba(20,32,43,0.06); }
+
+    .status {
+      margin: 1.25rem 0 0;
+      padding: 0.85rem 1rem;
+      border-radius: 12px;
+      background: rgba(15, 122, 108, 0.1);
+      border: 1px solid rgba(15, 122, 108, 0.25);
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.86rem;
+      animation: fade 0.35s ease;
+    }
+
+    .lab {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 1.25rem;
+      padding-bottom: 3rem;
+    }
+    @media (max-width: 900px) {
+      .lab { grid-template-columns: 1fr; }
+    }
+
+    .panel {
+      background: var(--panel);
+      backdrop-filter: blur(10px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 1.2rem;
+      animation: rise 0.8s ease both;
+    }
+    .panel h2 {
+      font-family: Fraunces, Georgia, serif;
+      font-size: 1.35rem;
+      margin: 0 0 0.85rem;
+    }
+    .hint { color: var(--muted); font-size: 0.92rem; margin: 0 0 1rem; }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem; }
+    .chip {
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 999px;
+      padding: 0.45rem 0.8rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+      transition: border-color 0.15s, transform 0.15s, background 0.15s;
+    }
+    .chip:hover { transform: translateY(-1px); }
+    .chip.on {
+      border-color: var(--accent);
+      background: rgba(15, 122, 108, 0.1);
+      font-weight: 600;
+    }
+    .chip[data-id="hermes"].on { border-color: var(--hermes); background: rgba(15,122,108,0.12); }
+    .chip[data-id="openclaw"].on { border-color: var(--openclaw); background: rgba(43,94,168,0.12); }
+
+    .weights { display: grid; gap: 0.55rem; margin: 1rem 0; }
+    .weight-row {
+      display: grid;
+      grid-template-columns: 9.5rem 1fr 2.2rem;
+      gap: 0.55rem;
+      align-items: center;
+      font-size: 0.86rem;
+    }
+    .weight-row label { color: var(--muted); }
+    .weight-row input[type="range"] { width: 100%; accent-color: var(--accent); }
+    .weight-row output {
+      font-family: "IBM Plex Mono", monospace;
+      text-align: right;
+    }
+
+    .presets { display: flex; flex-wrap: wrap; gap: 0.45rem; margin-bottom: 0.75rem; }
+    .mini {
+      border: 1px dashed var(--line);
+      background: #fff;
+      border-radius: 8px;
+      padding: 0.35rem 0.65rem;
+      font-size: 0.8rem;
+      cursor: pointer;
+    }
+    .mini:hover { border-color: var(--accent); }
+
+    .bars { display: grid; gap: 0.7rem; }
+    .axis-block { animation: slide 0.35s ease both; }
+    .axis-top {
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+      font-size: 0.84rem;
+      margin-bottom: 0.28rem;
+    }
+    .axis-top strong { font-weight: 600; }
+    .leader { color: var(--accent); font-family: "IBM Plex Mono", monospace; font-size: 0.75rem; }
+    .track {
+      display: grid;
+      gap: 0.25rem;
+    }
+    .bar-row {
+      display: grid;
+      grid-template-columns: 5.2rem 1fr 1.5rem;
+      gap: 0.4rem;
+      align-items: center;
+      font-size: 0.78rem;
+    }
+    .bar-bg {
+      height: 10px;
+      background: #e5ebf0;
+      border-radius: 999px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      width: 0;
+      border-radius: inherit;
+      transition: width 0.45s cubic-bezier(.2,.8,.2,1);
+    }
+    .bar-fill.hermes { background: var(--hermes); }
+    .bar-fill.openclaw { background: var(--openclaw); }
+    .bar-fill.langchain { background: #6b5b95; }
+    .bar-fill.autogen { background: #0e7490; }
+    .bar-fill.crewai { background: var(--accent-2); }
+
+    .totals {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 0.6rem;
+      margin-top: 1rem;
+    }
+    .total-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 0.75rem;
+      text-align: center;
+      transition: transform 0.2s ease;
+    }
+    .total-card.win {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 2px rgba(15,122,108,0.15);
+      transform: translateY(-2px);
+    }
+    .total-card .name { font-size: 0.8rem; color: var(--muted); }
+    .total-card .val {
+      font-family: Fraunces, Georgia, serif;
+      font-size: 1.55rem;
+      margin-top: 0.15rem;
+    }
+
+    .notes { margin-top: 1rem; display: grid; gap: 0.45rem; }
+    .note {
+      font-size: 0.88rem;
+      padding: 0.55rem 0.7rem;
+      border-left: 3px solid var(--accent);
+      background: rgba(255,255,255,0.7);
+      border-radius: 0 8px 8px 0;
+    }
+
+    details.idea {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #fff;
+      padding: 0.65rem 0.8rem;
+      margin-bottom: 0.5rem;
+      transition: border-color 0.15s;
+    }
+    details.idea[open] { border-color: var(--accent-2); }
+    details.idea summary {
+      cursor: pointer;
+      font-weight: 600;
+      list-style: none;
+    }
+    details.idea summary::-webkit-details-marker { display: none; }
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin: 0.45rem 0;
+    }
+    .tag {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.72rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: 6px;
+      background: #eef3f6;
+      color: var(--muted);
+    }
+    .tag.low { background: #dcfce7; color: #166534; }
+    .tag.medium { background: #ffedd5; color: #9a3412; }
+    .tag.high { background: #fee2e2; color: #991b1b; }
+
+    .cog {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-bottom: 0.85rem;
+    }
+
+    footer {
+      padding: 1.5rem 0 3rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+      border-top: 1px solid var(--line);
+    }
+    footer a { color: var(--accent); }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes fade {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes slide {
+      from { opacity: 0; transform: translateX(-6px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="hero">
+      <h1 class="brand">Hermes<span>Lens</span></h1>
+      <p class="lede">
+        Dissect agent frameworks side by side — architecture scorecards, center-of-gravity diffs,
+        and steal-these-ideas patches you can actually ship.
+      </p>
+      <div class="cta-row">
+        <button class="btn" id="btn-compare" type="button">Run scorecard</button>
+        <button class="btn ghost" id="btn-steal" type="button">Steal ideas → custom</button>
+        <button class="btn ghost" id="btn-rnd" type="button">R&amp;D weights</button>
+      </div>
+      <div class="status" id="status" role="status">Select Hermes + OpenClaw, then run the scorecard.</div>
+    </header>
+
+    <section class="lab" aria-label="Interactive dissection lab">
+      <div class="panel">
+        <h2>Frameworks</h2>
+        <p class="hint">Toggle 2–4 frameworks. Adjust axis weights to see how rankings flip.</p>
+        <div class="chips" id="chips"></div>
+
+        <div class="presets">
+          <button class="mini" data-preset="equal" type="button">Equal weights</button>
+          <button class="mini" data-preset="rnd" type="button">Agent R&amp;D bias</button>
+          <button class="mini" data-preset="product" type="button">Product / gateway bias</button>
+        </div>
+        <div class="weights" id="weights"></div>
+
+        <div class="totals" id="totals"></div>
+        <div class="bars" id="bars"></div>
+        <div class="notes" id="notes"></div>
+      </div>
+
+      <div class="panel">
+        <h2>Dissection desk</h2>
+        <p class="hint" id="desk-hint">Pick a primary framework to inspect philosophy and transferable ideas.</p>
+        <div class="chips" id="primary-chips"></div>
+        <div class="cog" id="cog"></div>
+        <div id="philosophy"></div>
+        <h2 style="margin-top:1.2rem">Steal-these-ideas</h2>
+        <p class="hint">Ranked by transfer cost into a custom / target runtime.</p>
+        <div id="ideas"></div>
+      </div>
+    </section>
+
+    <footer>
+      Open-source dissection lab ·
+      <a href="https://github.com/Amiirhosseini/hermeslens">GitHub</a> ·
+      CLI: <code>hermeslens score hermes openclaw --preset rnd</code>
+    </footer>
+  </div>
+
+  <script>
+    const AXES = [
+      { id: "memory", label: "Memory" },
+      { id: "skills", label: "Skills" },
+      { id: "learning", label: "Learning loop" },
+      { id: "multi_agent", label: "Multi-agent" },
+      { id: "gateway", label: "Gateway / ops" },
+      { id: "safety", label: "Safety" },
+      { id: "dx", label: "DX" },
+      { id: "tooling", label: "Tooling" },
+      { id: "context", label: "Context" },
+      { id: "extensibility", label: "Extensibility" },
+    ];
+
+    const CATALOG = {
+      hermes: {
+        name: "Hermes Agent",
+        cog: "AIAgent execution loop + learning loop",
+        philosophy: "Self-improving agent first: observe → distill → reuse → refine. Procedural skills are living memory.",
+        scores: { memory:5, skills:5, learning:5, multi_agent:3, gateway:4, safety:4, dx:4, tooling:4, context:5, extensibility:4 },
+        ideas: [
+          { title: "Observe→distill→reuse→refine skill loop", cost: "medium", from: "hermes",
+            summary: "After repeated successful trajectories, distill SKILL.md and patch pitfalls mid-session.",
+            why: "Turns episodic success into inspectable procedural memory." },
+          { title: "Tiny frozen always-on memory + tool retrieval", cost: "medium", from: "hermes",
+            summary: "Keep MEMORY.md/USER.md tiny and frozen per session; search history via FTS tools.",
+            why: "Improves prompt cache stability and forces curation." },
+          { title: "Progressive skill disclosure", cost: "low", from: "hermes",
+            summary: "Index cheap skill descriptors; hydrate full SKILL.md only on match.",
+            why: "Near-zero token tax for large skill libraries." },
+        ],
+      },
+      openclaw: {
+        name: "OpenClaw",
+        cog: "Gateway daemon (WebSocket control plane)",
+        philosophy: "Control-plane-first personal agent: Gateway owns channels, credentials, policy; skills mostly human-authored.",
+        scores: { memory:4, skills:4, learning:2, multi_agent:4, gateway:5, safety:3, dx:4, tooling:4, context:4, extensibility:5 },
+        ideas: [
+          { title: "Trusted gateway vs untrusted execution", cost: "high", from: "openclaw",
+            summary: "Credentials/channels/policy on Gateway; risky work in sandboxed Hands/nodes.",
+            why: "Fail-closed control plane for toB deployments." },
+          { title: "Model-native harness plugins", cost: "high", from: "openclaw",
+            summary: "Let model families keep native session loops while Gateway owns channels/policy.",
+            why: "Avoid lowest-common-denominator agent runtimes." },
+          { title: "Workspace-scoped identity pack", cost: "low", from: "openclaw",
+            summary: "SOUL.md + TOOLS.md + HEARTBEAT.md as project-local behavior packs.",
+            why: "Better for multi-repo / multi-tenant surfaces." },
+        ],
+      },
+      langchain: {
+        name: "LangChain / LangGraph",
+        cog: "Graph / runnable composition layer",
+        philosophy: "Composable chains and durable graphs — explicit state machines for product agents.",
+        scores: { memory:3, skills:2, learning:2, multi_agent:4, gateway:2, safety:3, dx:3, tooling:5, context:4, extensibility:5 },
+        ideas: [
+          { title: "Durable graph state with checkpoints", cost: "medium", from: "langchain",
+            summary: "Model control flow as an explicit resumable graph.",
+            why: "Debuggable long-running product agents." },
+        ],
+      },
+      autogen: {
+        name: "AutoGen",
+        cog: "Multi-agent conversation runtime",
+        philosophy: "Conversation-centric multi-agent: roles talk; group chat managers drive collaboration.",
+        scores: { memory:3, skills:2, learning:2, multi_agent:5, gateway:2, safety:3, dx:3, tooling:4, context:3, extensibility:4 },
+        ideas: [
+          { title: "Role-based group chat with manager", cost: "medium", from: "autogen",
+            summary: "Planner/researcher/critic/executor with an explicit speaker policy.",
+            why: "Clearest multi-agent collaboration teaching pattern." },
+        ],
+      },
+      crewai: {
+        name: "CrewAI",
+        cog: "Crew / task process orchestration",
+        philosophy: "Crews of role-specialized agents with sequential or hierarchical business processes.",
+        scores: { memory:3, skills:3, learning:2, multi_agent:5, gateway:2, safety:3, dx:5, tooling:4, context:3, extensibility:3 },
+        ideas: [
+          { title: "Sequential vs hierarchical crew processes", cost: "low", from: "crewai",
+            summary: "Encode org-like workflows as process modes with a manager agent.",
+            why: "Maps cleanly to toB business scenarios." },
+        ],
+      },
+    };
+
+    const PRESETS = {
+      equal: Object.fromEntries(AXES.map(a => [a.id, 1])),
+      rnd: { memory:1.2, skills:1.3, learning:1.5, multi_agent:1.3, gateway:1.0, safety:1.1, dx:1.2, tooling:1.0, context:1.2, extensibility:1.1 },
+      product: { memory:1.0, skills:1.1, learning:0.8, multi_agent:1.2, gateway:1.5, safety:1.4, dx:1.3, tooling:1.1, context:1.0, extensibility:1.3 },
+    };
+
+    const state = {
+      selected: new Set(["hermes", "openclaw"]),
+      primary: "hermes",
+      weights: { ...PRESETS.rnd },
+    };
+
+    const el = (id) => document.getElementById(id);
+
+    function setStatus(msg) {
+      const node = el("status");
+      node.style.animation = "none";
+      node.offsetHeight;
+      node.style.animation = "";
+      node.textContent = msg;
+    }
+
+    function renderChips() {
+      const host = el("chips");
+      host.innerHTML = "";
+      Object.keys(CATALOG).forEach((id) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "chip" + (state.selected.has(id) ? " on" : "");
+        b.dataset.id = id;
+        b.textContent = CATALOG[id].name;
+        b.addEventListener("click", () => {
+          if (state.selected.has(id)) {
+            if (state.selected.size === 1) return;
+            state.selected.delete(id);
+          } else {
+            state.selected.add(id);
+          }
+          if (!state.selected.has(state.primary)) {
+            state.primary = [...state.selected][0];
+          }
+          renderAll();
+          runCompare();
+        });
+        host.appendChild(b);
+      });
+
+      const ph = el("primary-chips");
+      ph.innerHTML = "";
+      [...state.selected].forEach((id) => {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "chip" + (state.primary === id ? " on" : "");
+        b.dataset.id = id;
+        b.textContent = CATALOG[id].name;
+        b.addEventListener("click", () => {
+          state.primary = id;
+          renderDesk();
+          setStatus(`Primary dissection: ${CATALOG[id].name}`);
+        });
+        ph.appendChild(b);
+      });
+    }
+
+    function renderWeights() {
+      const host = el("weights");
+      host.innerHTML = "";
+      AXES.forEach((axis) => {
+        const row = document.createElement("div");
+        row.className = "weight-row";
+        row.innerHTML = `
+          <label for="w-${axis.id}">${axis.label}</label>
+          <input id="w-${axis.id}" type="range" min="0.5" max="1.5" step="0.1" value="${state.weights[axis.id]}" />
+          <output id="o-${axis.id}">${state.weights[axis.id].toFixed(1)}</output>
+        `;
+        const input = row.querySelector("input");
+        const output = row.querySelector("output");
+        input.addEventListener("input", () => {
+          state.weights[axis.id] = Number(input.value);
+          output.textContent = Number(input.value).toFixed(1);
+          runCompare(false);
+        });
+        host.appendChild(row);
+      });
+    }
+
+    function weightedTotal(id) {
+      const scores = CATALOG[id].scores;
+      let acc = 0, wsum = 0;
+      AXES.forEach((a) => {
+        const w = state.weights[a.id];
+        acc += scores[a.id] * w;
+        wsum += w;
+      });
+      return wsum ? acc / wsum : 0;
+    }
+
+    function runCompare(announce = true) {
+      const ids = [...state.selected];
+      const totals = Object.fromEntries(ids.map((id) => [id, weightedTotal(id)]));
+      const winner = ids.reduce((a, b) => (totals[a] >= totals[b] ? a : b));
+
+      const totalsHost = el("totals");
+      totalsHost.innerHTML = ids.map((id) => `
+        <div class="total-card ${id === winner ? "win" : ""}">
+          <div class="name">${CATALOG[id].name}</div>
+          <div class="val">${totals[id].toFixed(2)}</div>
+        </div>
+      `).join("");
+
+      const bars = el("bars");
+      bars.innerHTML = "";
+      AXES.forEach((axis, idx) => {
+        const scores = Object.fromEntries(ids.map((id) => [id, CATALOG[id].scores[axis.id]]));
+        const max = Math.max(...Object.values(scores));
+        const min = Math.min(...Object.values(scores));
+        const spread = max - min;
+        const leader = spread > 0 ? ids.find((id) => scores[id] === max) : null;
+        const block = document.createElement("div");
+        block.className = "axis-block";
+        block.style.animationDelay = `${idx * 0.03}s`;
+        block.innerHTML = `
+          <div class="axis-top">
+            <strong>${axis.label}</strong>
+            <span class="leader">${leader ? CATALOG[leader].name + " leads" : "tie"}</span>
+          </div>
+          <div class="track">
+            ${ids.map((id) => `
+              <div class="bar-row">
+                <span>${id}</span>
+                <div class="bar-bg"><div class="bar-fill ${id}" style="width:${(scores[id] / 5) * 100}%"></div></div>
+                <span>${scores[id]}</span>
+              </div>
+            `).join("")}
+          </div>
+        `;
+        bars.appendChild(block);
+      });
+
+      const notes = [];
+      ids.forEach((id) => notes.push(`${CATALOG[id].name} CoG: ${CATALOG[id].cog}`));
+      AXES.forEach((axis) => {
+        const scores = ids.map((id) => CATALOG[id].scores[axis.id]);
+        const spread = Math.max(...scores) - Math.min(...scores);
+        if (spread >= 2) {
+          const leader = ids.reduce((a, b) =>
+            CATALOG[a].scores[axis.id] >= CATALOG[b].scores[axis.id] ? a : b
+          );
+          notes.push(`${axis.label}: ${CATALOG[leader].name} leads (gap ${spread}).`);
+        }
+      });
+      el("notes").innerHTML = notes.slice(0, 6).map((n) => `<div class="note">${n}</div>`).join("");
+
+      if (announce) {
+        setStatus(`Scorecard ready — ${CATALOG[winner].name} leads under current weights (${totals[winner].toFixed(2)}).`);
+      }
+    }
+
+    function renderDesk() {
+      const p = CATALOG[state.primary];
+      el("cog").textContent = `Center of gravity · ${p.cog}`;
+      el("philosophy").innerHTML = `<p style="margin:0 0 0.5rem">${p.philosophy}</p>`;
+
+      const ideas = [];
+      Object.keys(CATALOG).forEach((id) => {
+        if (id === state.primary) return;
+        CATALOG[id].ideas.forEach((idea) => ideas.push(idea));
+      });
+      // also include primary ideas as "exportable"
+      CATALOG[state.primary].ideas.forEach((idea) => ideas.push({ ...idea, export: true }));
+      const costRank = { low: 0, medium: 1, high: 2 };
+      ideas.sort((a, b) => costRank[a.cost] - costRank[b.cost]);
+
+      el("ideas").innerHTML = ideas.slice(0, 8).map((idea) => `
+        <details class="idea">
+          <summary>${idea.title}</summary>
+          <div class="meta">
+            <span class="tag ${idea.cost}">${idea.cost}</span>
+            <span class="tag">from ${idea.from}</span>
+            ${idea.export ? '<span class="tag">export from primary</span>' : '<span class="tag">import candidate</span>'}
+          </div>
+          <p style="margin:0.35rem 0;font-size:0.92rem">${idea.summary}</p>
+          <p style="margin:0;font-size:0.86rem;color:var(--muted)"><strong>Why:</strong> ${idea.why}</p>
+        </details>
+      `).join("");
+    }
+
+    function renderAll() {
+      renderChips();
+      renderWeights();
+      renderDesk();
+    }
+
+    el("btn-compare").addEventListener("click", () => runCompare(true));
+    el("btn-steal").addEventListener("click", () => {
+      state.primary = [...state.selected][0];
+      renderDesk();
+      const first = el("ideas").querySelector("details");
+      if (first) first.open = true;
+      setStatus("Steal-these-ideas ranked by transfer cost. Expand cards for patch summaries.");
+      el("ideas").scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+    el("btn-rnd").addEventListener("click", () => {
+      state.weights = { ...PRESETS.rnd };
+      renderWeights();
+      runCompare(true);
+    });
+    document.querySelectorAll("[data-preset]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        state.weights = { ...PRESETS[btn.dataset.preset] };
+        renderWeights();
+        runCompare(true);
+      });
+    });
+
+    renderAll();
+    runCompare(true);
+  </script>
+</body>
+</html>
