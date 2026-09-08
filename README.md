@@ -2,10 +2,10 @@
 
 **Agent framework dissection lab** — architecture scorecards, center-of-gravity diffs, and steal-these-ideas patches for Hermes, OpenClaw, LangChain/LangGraph, AutoGen, and CrewAI.
 
-> **Live demo:** [amiirhosseini.github.io/hermeslens](https://amiirhosseini.github.io/hermeslens/)  
+> **Live demo:** [amiirhosseini.com/HermesLens](https://amiirhosseini.com/HermesLens/)  
 > Touchable scorecard in the browser — flip weights, compare frameworks, expand transferable ideas. No server.
 
-[![Live Demo](https://img.shields.io/badge/demo-live-0f7a6c)](https://amiirhosseini.github.io/hermeslens/)
+[![Live Demo](https://img.shields.io/badge/demo-live-0f7a6c)](https://amiirhosseini.com/HermesLens/)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/python-3.11%2B-green.svg)](pyproject.toml)
 
@@ -47,7 +47,7 @@ hermeslens diff hermes openclaw
 
 ## Live demo walkthrough
 
-1. Open the [live demo](https://amiirhosseini.github.io/hermeslens/)
+1. Open the [live demo](https://amiirhosseini.com/HermesLens/)
 2. Keep **Hermes** + **OpenClaw** selected
 3. Click **R&D weights** — watch learning/skills axes dominate
 4. Switch to **Product / gateway bias** — OpenClaw usually climbs

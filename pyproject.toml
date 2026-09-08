@@ -49,7 +49,7 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://amiirhosseini.github.io/hermeslens/"
+Homepage = "https://amiirhosseini.com/HermesLens/"
 Documentation = "https://github.com/Amiirhosseini/hermeslens#readme"
 Repository = "https://github.com/Amiirhosseini/hermeslens"
 Issues = "https://github.com/Amiirhosseini/hermeslens/issues"
