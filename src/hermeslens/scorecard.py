@@ -11,7 +11,6 @@ from hermeslens.models import (
     CompareResult,
 )
 
-
 DEFAULT_WEIGHTS: dict[AxisId, float] = {axis: 1.0 for axis in AxisId}
 
 # Agent R&D bias: emphasize learning, skills, memory, multi-agent, DX

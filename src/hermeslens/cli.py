@@ -2,9 +2,6 @@
 
 from __future__ import annotations
 
-import json
-from typing import Optional
-
 import typer
 import uvicorn
 from rich.console import Console
@@ -46,7 +43,7 @@ def show(framework: str) -> None:
 @app.command()
 def score(
     frameworks: list[str] = typer.Argument(..., help="Framework IDs to compare"),
-    preset: Optional[str] = typer.Option(None, help="Weight preset: rnd"),
+    preset: str | None = typer.Option(None, help="Weight preset: rnd"),
     json_out: bool = typer.Option(False, "--json", help="Emit JSON"),
 ) -> None:
     """Compare frameworks on the architecture scorecard."""
@@ -82,7 +79,7 @@ def score(
 @app.command()
 def steal(
     target: str = typer.Argument(..., help="Framework to improve"),
-    source: Optional[list[str]] = typer.Option(
+    source: list[str] | None = typer.Option(
         None, "--from", help="Source framework IDs (default: all others)"
     ),
     max_ideas: int = typer.Option(6, help="Max ideas to return"),

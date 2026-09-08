@@ -5,7 +5,6 @@ from __future__ import annotations
 from hermeslens.catalog import get_framework, list_frameworks
 from hermeslens.models import DesignIdea, StealPlan
 
-
 COST_RANK = {"low": 0, "medium": 1, "high": 2}
 
 
